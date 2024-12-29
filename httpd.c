@@ -20,6 +20,37 @@ struct sHttpRequest
 };
 typedef struct sHttpRequest httpreq;
 
+// On success, returns a socket fd. On error, returns 0
+int srv_init(int portno)
+{
+    struct sockaddr_in addr;
+    int s;
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s < 0) {
+        perror("socket");
+        return 0;
+    }
+
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(portno);
+    addr.sin_addr.s_addr = inet_addr(LISTENADDR);
+
+    if (bind(s, (struct sockaddr *)&addr, sizeof(addr))) {
+        close(s);
+        perror("bind");
+        return 0;
+    }
+
+    if (listen(s, BACKLOG)) {
+        close(s);
+        perror("listen");
+        return 0;
+    }
+
+    return s;
+}
+
 // On success, returns the new client's socket fd. On error, returns 0
 int cli_accept(int s)
 {
@@ -76,8 +107,8 @@ httpreq *parse_http(char *str)
 char *cli_read(int s)
 {
     static char buf[512];
-    memset(buf, 0, 512);
-    if (read(s, buf, 511) < 0) {
+    memset(buf, 0, sizeof(buf));
+    if (read(s, buf, sizeof(buf) - 1) < 0) {
         perror("read");
         return 0;
     }
@@ -106,37 +137,6 @@ void cli_connect(int s, int c)
     free(req);
     close(c);
     return;
-}
-
-// On success, returns a socket fd. On error, returns 0
-int srv_init(int portno)
-{
-    struct sockaddr_in addr;
-    int s;
-
-    s = socket(AF_INET, SOCK_STREAM, 0);
-    if (s < 0) {
-        perror("socket");
-        return 0;
-    }
-
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(portno);
-    addr.sin_addr.s_addr = inet_addr(LISTENADDR);
-
-    if (bind(s, (struct sockaddr *)&addr, sizeof(addr))) {
-        close(s);
-        perror("bind");
-        return 0;
-    }
-
-    if (listen(s, BACKLOG)) {
-        close(s);
-        perror("listen");
-        return 0;
-    }
-
-    return s;
 }
 
 int main(int argc, char **argv)
